@@ -90,9 +90,10 @@ class PyTater:
             if self.starting_blocks == 0 and response['blocks'] != 0:
                 self.starting_blocks = response['blocks']
             if response['blocks'] != self.starting_blocks:
+                self.block_count = response['blocks'] - self.starting_blocks
+
                 if response['blocks'] - self.starting_blocks != self.block_count:
                     logging.info("New Block Adopted! Block Count (this run): {}".format(self.block_count))
-                self.block_count = response['blocks'] - self.starting_blocks
             self.valid_miner = True
         except KeyError as e:
             self.valid_miner = False
