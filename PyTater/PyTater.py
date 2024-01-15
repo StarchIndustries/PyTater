@@ -46,7 +46,7 @@ class colors:
 
 class PyTater:
 
-    def __init__(self, miner_id, pretty_mode):
+    def __init__(self, miner_id, pretty_mode, debug_mode):
         self.block_found = False
         self.valid_miner = False
 
@@ -65,6 +65,7 @@ class PyTater:
 
         self.miner_id = miner_id
         self.pretty_mode = pretty_mode
+        self.debug_mode = debug_mode
 
         self.run_start = datetime.now()
 
@@ -89,6 +90,8 @@ class PyTater:
         if have_pending:
             self.print_divider()
             self.fix_line(f" │ Pending Blocks  │ {len(self.pending_blocks or []).__str__()}")
+            self.print_divider()
+            self.fix_line(f" | Mined Block     │ {self.block_found}")
             print(" ├─────────────────┴─────────────────────────┤ ")
             # print()
             # print(f"{colors.OKBLUE}" + u"\u2588" + f"{colors.ENDC}")
@@ -99,7 +102,10 @@ class PyTater:
                 green = int(block['color'][3:5], 16)
                 blue = int(block['color'][5:7], 16)
                 xterm = rgb_to_xterm(red, green, blue)
-                pending_terminal_blocks += (f"\033[38;5;{xterm}m" + u"\u2584" + f"{colors.ENDC} ")
+                block_char = u"\u2584"
+                if block['miner_id'] == self.miner_id:
+                    block_char = u"\u2587"
+                pending_terminal_blocks += (f"\033[38;5;{xterm}m" + block_char + f"{colors.ENDC} ")
                 terminal_block_count += 1
 
                 if terminal_block_count == 21:
@@ -107,7 +113,7 @@ class PyTater:
                     pending_terminal_blocks = " │ "
                     terminal_block_count = 0
             if terminal_block_count > 0:
-                print(pending_terminal_blocks + ("  " * (21 - terminal_block_count))+"│ ")
+                print(pending_terminal_blocks + ("  " * (21 - terminal_block_count)) + "│ ")
         self.print_close()
         print()
         print(f"   {colors.OKGREEN}Press ctrl+c to stop the miner{colors.ENDC}")
@@ -133,7 +139,7 @@ class PyTater:
         self.clear()
         print(" ┌───────────────────────────────────────────┐ ")
         self.fix_line(f" │ {colors.OKGREEN}Starch Industries", True)
-        self.fix_line( f" │ {colors.OKGREEN}PyTater Miner v4.2.0", True)
+        self.fix_line(f" │ {colors.OKGREEN}PyTater Miner v4.2.0", True)
         self.fix_line(" │ Created by: @abstractpotato")
         self.fix_line(" │ With help from: @adamkdean")
         if is_closed:
@@ -162,7 +168,7 @@ class PyTater:
         try:
             res = requests.get('https://starch.one/api/blockchain_config')
         except TimeoutError:
-            if self.pretty_mode is False:
+            if self.pretty_mode is False or self.debug_mode:
                 logging.error("Timeout fetching chain config!")
             return
         try:
@@ -177,7 +183,7 @@ class PyTater:
         except KeyError:
             return
 
-        if self.pretty_mode is False:
+        if self.pretty_mode is False or self.debug_mode:
             logging.info(
                 "Block Height: {} (Hash: {}, Color: {}, Miner: {})".format(self.block_height, self.last_block['hash'],
                                                                            self.last_block['color'],
@@ -212,7 +218,7 @@ class PyTater:
         try:
             response = res.json()
         except json.decoder.JSONDecodeError:
-            if self.pretty_mode is False:
+            if self.pretty_mode is False or self.debug_mode:
                 logging.error(res)
             return
         try:
@@ -230,11 +236,11 @@ class PyTater:
             # self.new_block_count = 0
             self.starch_balance = 0
             self.miner_id = None
-            if self.pretty_mode is False:
+            if self.pretty_mode is False or self.debug_mode:
                 logging.error("Miner ID not found!")
 
     def sync(self, should_sync):
-        if self.pretty_mode is False:
+        if self.pretty_mode is False or self.debug_mode:
             logging.info("Booting up anticipation... Get ready for a simmering sensation.")
         while should_sync.is_set():
             start = time.time()
@@ -262,33 +268,34 @@ class PyTater:
     #   "rewards": 25000000
     # }
     def mine_block(self):
-        if self.pretty_mode is False:
+        if self.pretty_mode is False or self.debug_mode:
             logging.info("Unearthing $STRCH treasures with potato prowess... Mining spudtastic crypto gold.")
         self.get_chain_config()
         if self.block_found and self.last_own_block['previous_hash'] == self.last_block['hash']:
-            if self.pretty_mode is False:
+            if self.pretty_mode is False or self.debug_mode:
                 logging.info("My Last Block:     (Hash: {}, Color: {})".format(self.last_own_block['previous_hash'],
-                                                                           self.last_own_block['color']))
+                                                                               self.last_own_block['color']))
         else:
-            if self.pretty_mode is False:
+            if self.pretty_mode is False or self.debug_mode:
                 logging.info("We should mine a block!")
             new_block = self.solve(self.last_block['hash'])
             self.submit_block(new_block)
 
     def submit_block(self, new_block):
         requests.post('https://starch.one/api/submit_block', json=new_block)
-        if self.pretty_mode is False:
+        if self.pretty_mode is False or self.debug_mode:
             logging.info("New block submitted to the chain!")
 
     def solve(self, blockhash):
         color = self.randomColor(blockhash)
-        if self.pretty_mode is False:
-            logging.debug("Solving New Block:\nHash: {}\nMiner ID: {}\nColor: {}".format(blockhash, self.miner_id, color))
+        if self.pretty_mode is False or self.debug_mode:
+            logging.debug(
+                "Solving New Block:\nHash: {}\nMiner ID: {}\nColor: {}".format(blockhash, self.miner_id, color))
         solution = blockhash + " " + self.miner_id + " " + color
         m = hashlib.sha256()
         m.update(bytes(solution, 'ascii'))
         new_hash = m.hexdigest()
-        if self.pretty_mode is False:
+        if self.pretty_mode is False or self.debug_mode:
             logging.info("Block hash: {}".format(new_hash))
         return {'hash': new_hash, 'color': color, 'miner_id': self.miner_id}
 
@@ -302,7 +309,7 @@ class PyTater:
         # return "#000000"
 
     def mine(self, should_mine):
-        if self.pretty_mode is False:
+        if self.pretty_mode is False or self.debug_mode:
             logging.info("Diving deep into the crypto potato mine... Extracting $STRCH gems with starchy precision.")
         while should_mine.is_set():
             start = time.time()
@@ -328,13 +335,13 @@ def end_script(signal, frame):
     sys.exit(0)
 
 
-def run(miner_id, pretty_mode):
+def run(miner_id, pretty_mode, debug_mode):
     global do_mine, run_sync, running_sync, miner_running, miner
     # global valid_miner, miner_id
     # if pretty_mode is False:
     logging.info("Loading potato goodness... Spudtacular moments are on the way!")
 
-    miner = PyTater(miner_id, pretty_mode)
+    miner = PyTater(miner_id, pretty_mode, debug_mode)
 
     run_sync.set()
     running_sync = threading.Thread(target=miner.sync, args=(run_sync,), daemon=True)
@@ -351,8 +358,9 @@ def run(miner_id, pretty_mode):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="PyTater", description="Python-based Starch Mining!")
-    parser.add_argument("-m", "--miner_id", type=ascii, help="The Miner ID you wish to use", nargs="?")
+    parser.add_argument("-m", "--miner_id", help="The Miner ID you wish to use", nargs="?")
     parser.add_argument("-p", "--pretty", action='store_true', help="Change to pretty terminal output mode")
+    parser.add_argument("-d", "--debug", action='store_true', help="Enable debug logging for troubleshooting")
     # parser.add_argument("--mode", type=str, choices=["cli", "pretty"], help="The output display mode")
     args = parser.parse_args()
 
@@ -362,7 +370,7 @@ if __name__ == '__main__':
     logging.info(args)
 
     try:
-        run(args.miner_id, args.pretty)
+        run(args.miner_id, args.pretty, args.debug)
         signal.signal(signal.SIGINT, end_script)
 
         while True:
